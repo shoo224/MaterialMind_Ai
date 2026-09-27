@@ -1,0 +1,6 @@
+material_code,description,category,unit,manufacturer,supplier,specification
+MAT001,SS Bolt M10 x 50,Bolt,PCS,ABC Steel,Supplier A,ISO 4017
+MAT002,Stainless Steel Nut M10,Nut,PCS,XYZ Steel,Supplier B,ISO 4032
+MAT003,SS Washer M10,Washer,PCS,ABC Steel,Supplier A,ISO 7089
+MAT004,Hex Bolt M12 x 60,Bolt,PCS,ABC Steel,Supplier C,ISO 4017
+MAT005,Stainless Steel Screw M8 x 30,Screw,PCS,XYZ Steel,Supplier B,ISO 4762
