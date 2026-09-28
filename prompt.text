@@ -1,0 +1,874 @@
+MaterialMind AI — Complete System Design
+One-line idea
+
+MaterialMind AI is an intelligent material and procurement management platform that understands messy material data, identifies duplicate/equivalent materials, creates standardized material records, forecasts future demand using time-series models, monitors inventory, and recommends when/what/how much to procure.
+
+It is based on the core idea of SIH26099 — AI-driven standardization and harmonization of material codes across CPSEs, but we can extend it significantly with time-series forecasting and procurement intelligence.
+
+1. What problem are we solving?
+
+Imagine a large company has these records:
+
+Material Code	Description	Unit
+MAT001	SS Bolt M10 x 50	PCS
+MAT892	Stainless Steel Bolt 10mm 50mm	NOS
+MAT442	SS M10/50 Bolt	Piece
+MAT761	Stainless Bolt M10X50	PCS
+
+A human can understand that these may be the same material.
+
+A traditional ERP may treat them as four different materials.
+
+This causes:
+
+duplicate material records
+unnecessary purchasing
+excess inventory
+difficulty finding existing materials
+inconsistent units
+poor supplier comparison
+fragmented procurement history
+inaccurate demand analysis
+
+And there's another problem:
+
+Even after identifying the correct material, companies often don't know:
+
+"How much will we need next month?"
+
+That's where our Time-Series Intelligence comes in.
+
+2. What MaterialMind will solve
+
+Our system has 5 major jobs.
+
+Module 1 — Material Understanding
+
+Understand messy material descriptions.
+
+Module 2 — Material Harmonization
+
+Find:
+
+exact duplicates
+near duplicates
+equivalent materials
+conflicting specifications
+Module 3 — Standardization
+
+Create a canonical material record and map old codes to it.
+
+Module 4 — Time-Series Intelligence
+
+Analyze historical:
+
+consumption
+purchases
+prices
+inventory
+
+and forecast future demand.
+
+Module 5 — Procurement Intelligence
+
+Combine material understanding + forecast + inventory to answer:
+
+What should I buy, when should I buy it, and how much should I buy?
+
+3. Overall architecture
+                    MATERIALMIND AI
+                           │
+            ┌──────────────┴──────────────┐
+            │                             │
+       FRONTEND                       BACKEND
+      React/Next.js                   FastAPI
+            │                             │
+            └──────────────┬──────────────┘
+                           │
+                    API / AI LAYER
+                           │
+       ┌───────────────────┼───────────────────┐
+       │                   │                   │
+   NLP ENGINE         ENTITY RESOLUTION   TIME SERIES
+       │                   │                   │
+       │                   │                   │
+   NER / Parsing       Embeddings          Forecasting
+   Attribute           Vector Search       Demand
+   Extraction          Similarity          Price
+       │                   │                Inventory
+       └───────────────────┼───────────────────┘
+                           │
+                    KNOWLEDGE LAYER
+                           │
+             PostgreSQL + pgvector
+                    + Knowledge Graph
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+             Material DB        Historical DB
+                 │                   │
+                 └─────────┬─────────┘
+                           │
+                    PROCUREMENT AI
+                           │
+              Recommendations / Alerts
+4. Input to the system
+
+The user can upload:
+
+Material Master
+material_code
+description
+category
+unit
+specification
+manufacturer
+supplier
+Inventory Data
+material_code
+date
+opening_stock
+received
+consumed
+closing_stock
+Purchase Data
+material_code
+date
+quantity
+price
+supplier
+lead_time
+Optional
+warehouse
+department
+location
+purchase_order
+historical demand
+
+The application should support:
+
+CSV + Excel + REST API
+
+So the demo doesn't depend on having access to an actual SAP/CPSE database.
+
+5. Module 1 — Data ingestion
+
+First:
+
+Excel / CSV / API
+       ↓
+Data Validation
+       ↓
+Missing Value Detection
+       ↓
+Data Cleaning
+       ↓
+Unit Normalization
+       ↓
+Database
+
+Example:
+
+"SS bolt M10 x 50mm"
+"ss bolt M10X50"
+"Stainless Steel Bolt 10 mm × 50 mm"
+
+All go through preprocessing.
+
+6. Module 2 — NLP Material Understanding
+
+This is where the system starts understanding the material.
+
+Suppose:
+
+SS HEX BOLT M10 X 50 ISO 4017
+
+AI extracts:
+
+Material = Stainless Steel
+Type = Hex Bolt
+Diameter = 10 mm
+Length = 50 mm
+Standard = ISO 4017
+Technologies
+
+You can use:
+
+NLP
+NER
+regex
+domain dictionaries
+sentence embeddings
+LLM-assisted extraction
+
+The important thing is:
+
+Don't depend entirely on an LLM.
+
+Use deterministic extraction + ML/LLM where appropriate.
+
+That makes the system more reliable.
+
+7. Module 3 — Entity Resolution
+
+This is the core AI component.
+
+Suppose:
+
+A = SS Bolt M10 × 50 ISO 4017
+B = Stainless Steel Hex Bolt 10mm 50mm ISO4017
+
+The system calculates multiple similarities:
+
+Description similarity       94%
+Specification similarity     100%
+Unit compatibility            100%
+Category similarity            98%
+Manufacturer similarity        80%
+
+Then:
+
+Final confidence = 96%
+
+The system classifies:
+
+SAME
+
+Probably the same material.
+
+SIMILAR
+
+Very similar, but needs verification.
+
+EQUIVALENT
+
+Different codes but functionally interchangeable.
+
+DIFFERENT
+
+Should remain separate.
+
+8. Important safety feature: specification conflict
+
+This is extremely important.
+
+Consider:
+
+Material A:
+SS Bolt M10 × 50
+Grade 304
+
+Material B:
+SS Bolt M10 × 50
+Grade 316
+
+The description similarity may be 98%.
+
+But they aren't necessarily interchangeable.
+
+So MaterialMind should say:
+
+⚠️ High textual similarity but specification conflict detected.
+
+This makes your project much more realistic.
+
+9. Vector Search
+
+Every material gets an embedding.
+
+Material description
+       ↓
+Embedding Model
+       ↓
+Vector
+       ↓
+Vector Database
+
+For example:
+
+M001 → [0.21, 0.83, 0.14, ...]
+M002 → [0.22, 0.81, 0.15, ...]
+
+Use:
+
+pgvector / FAISS
+
+Then when a new material arrives:
+
+New Material
+     ↓
+Embedding
+     ↓
+Nearest Neighbor Search
+     ↓
+Top 10 similar materials
+     ↓
+Entity Resolution
+
+This is much faster than comparing every material with every other material.
+
+10. Knowledge Graph
+
+This is an advanced feature I'd definitely add.
+
+Represent relationships:
+
+Material
+   │
+   ├── belongs to → Category
+   │
+   ├── has → Specification
+   │
+   ├── supplied by → Supplier
+   │
+   ├── stored at → Warehouse
+   │
+   ├── purchased from → Supplier
+   │
+   └── equivalent to → Material
+
+Example:
+
+M001
+ │
+ ├── Stainless Steel
+ ├── Bolt
+ ├── M10
+ ├── 50mm
+ ├── ISO 4017
+ ├── Supplier A
+ └── Warehouse Delhi
+
+This allows more intelligent queries later.
+
+11. Module 4 — Standardization
+
+After finding duplicates:
+
+M001 ─┐
+M892 ─┤
+M442 ─┼──→ CANONICAL MATERIAL
+M761 ─┘
+
+The system generates:
+
+Canonical ID:
+MAT-SS-BOLT-M10-50-ISO4017
+
+Standard Name:
+Stainless Steel Hex Bolt M10 × 50 mm
+
+Standard Unit:
+PCS
+
+But AI should not automatically delete anything.
+
+Use:
+
+Human-in-the-loop approval
+
+User sees:
+
+AI Recommendation
+
+96% Match
+
+[Approve] [Reject] [Review]
+12. Module 5 — Time-Series Intelligence 📈
+
+This is the part you specifically wanted.
+
+Now we take historical data.
+
+Example:
+
+Date        Material     Consumption
+Jan 2026    M001         320
+Feb 2026    M001         350
+Mar 2026    M001         410
+Apr 2026    M001         390
+May 2026    M001         450
+Jun 2026    M001         480
+...
+
+The system learns the pattern.
+
+13. What exactly will we forecast?
+
+Don't restrict it to one forecast.
+
+A. Demand Forecast
+
+How many units will be required?
+
+Next month → 520
+Next 2 months → 1,080
+Next 3 months → 1,670
+B. Inventory Forecast
+Current stock = 800
+
+Expected consumption
+       ↓
+Future inventory
+       ↓
+Expected stockout date
+C. Price Forecast
+
+If enough historical price data exists:
+
+Historical price
+       ↓
+Time-series model
+       ↓
+Expected price trend
+D. Procurement Forecast
+
+Combine everything:
+
+Demand
++
+Current stock
++
+Lead time
++
+Safety stock
+=
+Recommended purchase quantity
+14. Time-Series models
+
+We should not immediately use LSTM just because it's an AI project.
+
+Build progressively.
+
+Baseline
+Moving Average
+Classical
+Exponential Smoothing
+ARIMA / SARIMA
+Machine Learning
+XGBoost
+LightGBM
+
+using:
+
+lag features
+rolling mean
+rolling std
+month
+day
+season
+previous demand
+Advanced
+
+Compare with:
+
+LSTM / GRU
+Temporal Fusion Transformer
+PatchTST
+
+The system can automatically compare models using:
+
+MAE
+RMSE
+MAPE / sMAPE
+
+and select the best-performing model for the material.
+
+15. Very important: not every material needs the same model
+
+Some materials may have:
+
+stable demand
+
+Others:
+
+seasonal demand
+
+Others:
+
+irregular demand
+
+So we can first classify demand patterns.
+
+Historical demand
+       ↓
+Demand Pattern Detection
+       ↓
+ ┌─────┼──────┐
+ ↓     ↓      ↓
+Stable Seasonal Intermittent
+ ↓     ↓      ↓
+Model Model    Model
+
+This makes the forecasting system much more intelligent.
+
+16. Procurement Intelligence
+
+This is where the entire project becomes really useful to a real user.
+
+Suppose:
+
+Material: SS Bolt M10 × 50
+
+Current stock: 800
+Average monthly demand: 400
+Forecast next month: 520
+Supplier lead time: 20 days
+Safety stock: 250
+
+The system calculates:
+
+Expected demand
++
+Lead-time requirement
++
+Safety stock
+-
+Current inventory
+
+and gives:
+
+🟢 Recommended order: 500 units
+
+17. Smart alerts
+
+The dashboard can automatically show:
+
+🔴 Stockout Risk
+
+M-102 may run out in 12 days.
+
+🟠 Procurement Risk
+
+Supplier lead time increased significantly.
+
+🟡 Duplicate Risk
+
+New material appears 94% similar to M-782.
+
+🔵 Demand Spike
+
+Demand increased 38% compared with historical trend.
+
+🟣 Price Alert
+
+Purchase price is trending upward.
+
+18. Final dashboard
+
+Your frontend can have:
+
+┌──────────────────────────────────────────┐
+│           MATERIALMIND AI                │
+├──────────┬──────────┬──────────┬─────────┤
+│ Materials│ Duplicates│ Stock Risk│ Forecast│
+│ 52,430   │ 3,284     │ 127       │ 94%     │
+└──────────┴──────────┴──────────┴─────────┘
+
+        PROCUREMENT HEALTH
+
+┌──────────────────────────────────────────┐
+│ ⚠ 127 materials may stock out            │
+│ ⚠ 342 duplicate materials detected       │
+│ ↑ 18 materials have demand spikes        │
+│ ₹ Estimated procurement opportunity      │
+└──────────────────────────────────────────┘
+
+             DEMAND FORECAST
+
+       Historical ───── Forecast
+             📈
+
+        [Material Selector]
+
+             [View Details]
+19. Material detail page
+
+When the user clicks a material:
+
+MATERIAL: MAT-SS-BOLT-M10-50
+
+Standard Name
+Stainless Steel Hex Bolt M10 × 50
+
+Specifications
+✓ SS
+✓ M10
+✓ 50 mm
+✓ ISO 4017
+
+Equivalent Materials
+M001   96%
+M892   94%
+M442   91%
+
+Inventory
+Current Stock: 1,240
+
+Demand Forecast
+Next Month: 520
+Next 3 Months: 1,670
+
+Procurement
+Recommended Order: 500
+
+Suppliers
+Supplier A
+Supplier B
+Supplier C
+
+AI Recommendation
+"Use existing MAT-SS-BOLT-M10-50.
+Do not create a new material."
+20. Complete user workflow
+
+This is the workflow I'd use for the project:
+
+                 USER
+                  │
+                  ▼
+        Upload Excel / CSV / API
+                  │
+                  ▼
+          DATA VALIDATION
+                  │
+                  ▼
+         CLEAN + NORMALIZE
+                  │
+                  ▼
+       NLP MATERIAL UNDERSTANDING
+                  │
+                  ▼
+        ATTRIBUTE EXTRACTION
+                  │
+                  ▼
+          VECTOR EMBEDDINGS
+                  │
+                  ▼
+          SIMILARITY SEARCH
+                  │
+                  ▼
+         ENTITY RESOLUTION
+                  │
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+      SAME     SIMILAR   DIFFERENT
+        │         │
+        └────┬────┘
+             ▼
+      HUMAN APPROVAL
+             │
+             ▼
+     CANONICAL MATERIAL
+             │
+             ├────────────────────┐
+             │                    │
+             ▼                    ▼
+       HISTORICAL DATA       KNOWLEDGE GRAPH
+             │
+             ▼
+      TIME-SERIES ENGINE
+             │
+       ┌─────┼──────┐
+       ▼     ▼      ▼
+     Demand Stock   Price
+    Forecast Forecast Forecast
+       │     │      │
+       └─────┼──────┘
+             ▼
+     PROCUREMENT ENGINE
+             │
+             ▼
+      RECOMMENDATION
+             │
+             ▼
+       USER DASHBOARD
+             │
+       ┌─────┼──────┐
+       ▼     ▼      ▼
+     Approve Reject Export
+             │
+             ▼
+        FEEDBACK LOOP
+             │
+             └──────→ AI improves
+21. Complete technology stack
+Frontend
+
+React / Next.js
+
+dashboard
+charts
+material search
+upload
+approval interface
+forecasting visualization
+alerts
+Backend
+
+FastAPI + Python
+
+APIs such as:
+
+/upload
+/materials
+/search
+/match
+/standardize
+/forecast
+/inventory
+/procurement
+/recommendations
+/alerts
+Database
+
+PostgreSQL
+
+Store:
+
+materials
+inventory
+purchases
+suppliers
+forecasts
+user decisions
+Vector database
+
+pgvector
+
+For semantic material search.
+
+ML/NLP
+Sentence Transformers
+spaCy
+scikit-learn
+XGBoost
+PyTorch
+Time Series
+Statsmodels
+XGBoost
+PyTorch
+
+Potential advanced models:
+
+LSTM
+TFT
+PatchTST
+Knowledge Graph
+
+For example:
+
+Neo4j
+
+or initially PostgreSQL relationships if we want to keep the project manageable.
+
+LLM
+
+Use an LLM selectively for:
+
+technical attribute extraction
+explanation
+natural-language queries
+standards/document reasoning
+
+Not as the entire system.
+
+Deployment
+Docker
+      ↓
+Cloud
+      ↓
+Frontend + Backend + Database
+
+Add:
+
+authentication
+logging
+monitoring
+API documentation
+CI/CD
+22. Where the "advanced AI" is
+
+This project isn't just:
+
+"Upload CSV → Random Forest → Prediction."
+
+It contains multiple AI problems:
+
+Component	AI/ML concept
+Material understanding	NLP
+Attribute extraction	NER / LLM
+Similarity	Embeddings
+Duplicate detection	Entity Resolution
+Fast retrieval	Vector Search
+Equivalent material discovery	Semantic similarity
+Material relationships	Knowledge Graph
+Demand prediction	Time Series
+Price prediction	Time Series
+Stockout prediction	Forecasting
+Procurement recommendation	Decision Intelligence
+User feedback	Human-in-the-loop learning
+Technical documents	RAG
+Anomaly detection	ML
+23. What makes this project special
+
+The strongest part is integration.
+
+Most projects would do:
+
+Material duplicate detection
+
+or:
+
+Demand forecasting
+
+But your system connects them:
+
+Messy Material Data
+        ↓
+Understand Material
+        ↓
+Standardize Material
+        ↓
+Understand Historical Demand
+        ↓
+Forecast Future Demand
+        ↓
+Understand Inventory
+        ↓
+Recommend Procurement
+
+So the system answers the much more useful question:
+
+"What material do I actually have, how much will I need, and what should I procure?"
+
+24. One important design decision
+
+I would not make this an autonomous purchasing agent that actually places orders automatically.
+
+Instead:
+
+AI analyzes
+      ↓
+AI recommends
+      ↓
+Human approves
+      ↓
+Optional ERP/API action
+
+That is much safer and much more realistic for enterprise procurement.
+
+25. Final project definition
+MaterialMind AI
+
+AI-Powered Material Harmonization, Demand Forecasting & Procurement Intelligence Platform
+
+Core pipeline:
+
+Data → NLP → Entity Resolution → Standardization → Vector Search → Knowledge Graph → Time-Series Forecasting → Inventory Intelligence → Procurement Recommendation → Human Approval
+
+And the final live demo can show a complete journey:
+
+Upload 50,000 material + historical transaction records → detect duplicates → create standardized material groups → forecast demand → identify stockout risks → recommend reorder quantities → show everything on an interactive dashboard.
+
+That is the version of MaterialMind I would recommend building for your 3rd-year AI/DS portfolio: ambitious enough to demonstrate advanced skills, but structured into modules so we can actually finish and deploy it.
